@@ -11,9 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
-# run_ollama.py by tj-scripts（https://github.com/tj-scripts）
-
+import os
 import sys
+
 from dotenv import load_dotenv
 from camel.models import ModelFactory
 from camel.toolkits import (
@@ -27,9 +27,7 @@ from camel.toolkits import (
 from camel.types import ModelPlatformType
 
 from owl.utils import run_society
-
 from camel.societies import RolePlaying
-
 from camel.logger import set_log_level
 
 import pathlib
@@ -54,34 +52,39 @@ def construct_society(question: str) -> RolePlaying:
     # Create models for different components
     models = {
         "user": ModelFactory.create(
-            model_platform=ModelPlatformType.OLLAMA,
-            model_type="qwen2.5:72b",
-            url="http://localhost:11434/v1",
-            model_config_dict={"temperature": 0.8, "max_tokens": 1000000},
+            model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+            model_type="qwen-max",
+            api_key=os.getenv("QWEN_API_KEY"),
+            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            model_config_dict={"temperature": 0.4, "max_tokens": 128000},
         ),
         "assistant": ModelFactory.create(
-            model_platform=ModelPlatformType.OLLAMA,
-            model_type="qwen2.5:72b",
-            url="http://localhost:11434/v1",
-            model_config_dict={"temperature": 0.2, "max_tokens": 1000000},
+            model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+            model_type="qwen-max",
+            api_key=os.getenv("QWEN_API_KEY"),
+            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            model_config_dict={"temperature": 0.4, "max_tokens": 128000},
         ),
         "browsing": ModelFactory.create(
-            model_platform=ModelPlatformType.OLLAMA,
-            model_type="llava:latest",
-            url="http://localhost:11434/v1",
-            model_config_dict={"temperature": 0.4, "max_tokens": 1000000},
+            model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+            model_type="qwen-vl-max",
+            api_key=os.getenv("QWEN_API_KEY"),
+            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            model_config_dict={"temperature": 0.4, "max_tokens": 128000},
         ),
         "planning": ModelFactory.create(
-            model_platform=ModelPlatformType.OLLAMA,
-            model_type="qwen2.5:72b",
-            url="http://localhost:11434/v1",
-            model_config_dict={"temperature": 0.4, "max_tokens": 1000000},
+            model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+            model_type="qwen-max",
+            api_key=os.getenv("QWEN_API_KEY"),
+            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            model_config_dict={"temperature": 0.4, "max_tokens": 128000},
         ),
         "image": ModelFactory.create(
-            model_platform=ModelPlatformType.OLLAMA,
-            model_type="llava:latest",
-            url="http://localhost:11434/v1",
-            model_config_dict={"temperature": 0.4, "max_tokens": 1000000},
+            model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+            model_type="qwen-vl-max",
+            api_key=os.getenv("QWEN_API_KEY"),
+            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+            model_config_dict={"temperature": 0.4, "max_tokens": 128000},
         ),
     }
 
@@ -95,7 +98,7 @@ def construct_society(question: str) -> RolePlaying:
         *CodeExecutionToolkit(sandbox="subprocess", verbose=True).get_tools(),
         *ImageAnalysisToolkit(model=models["image"]).get_tools(),
         SearchToolkit().search_duckduckgo,
-        # SearchToolkit().search_google,  # Comment this out if you don't have google search
+        SearchToolkit().search_google,  # Comment this out if you don't have google search
         SearchToolkit().search_wiki,
         *ExcelToolkit().get_tools(),
         *FileWriteToolkit(output_dir="./").get_tools(),
@@ -125,7 +128,7 @@ def construct_society(question: str) -> RolePlaying:
 
 def main():
     r"""Main function to run the OWL system with an example question."""
-    # Default research question
+    # Example research question
     default_task = "Navigate to Amazon.com and identify one product that is attractive to coders. Please provide me with the product name and price. No need to verify your answer."
 
     # Override default task if command line argument is provided
@@ -133,6 +136,7 @@ def main():
 
     # Construct and run the society
     society = construct_society(task)
+
     answer, chat_history, token_count = run_society(society)
 
     # Output the result

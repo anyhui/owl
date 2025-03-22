@@ -113,6 +113,9 @@ Our vision is to revolutionize how AI agents collaborate to solve real-world tas
   </p>
 </div>
 
+- **[2025.03.21]**: Integrated OpenRouter model platform, fix bug with Gemini tool calling
+- **[2025.03.20]**: Accept header in MCP Toolkit, support automatic playwright installation
+- **[2025.03.16]**: Support Bing search, Baidu search
 - **[2025.03.12]**: Added Bocha search in SearchToolkit, integrated Volcano Engine model platform, and enhanced Azure and OpenAI Compatible models with structured output and tool calling.
 - **[2025.03.11]**: We added MCPToolkit, FileWriteToolkit, and TerminalToolkit to enhance OWL agents with MCP tool calling, file writing capabilities, and terminal command execution.
 - **[2025.03.09]**: We added a web-based user interface that makes it easier to interact with the system.
@@ -260,6 +263,10 @@ Alternatively, you can set environment variables directly in your terminal:
 
 ## **Running with Docker**
 
+OWL can be easily deployed using Docker, which provides a consistent environment across different platforms.
+
+### **Setup Instructions**
+
 ```bash
 # Clone the repository
 git clone https://github.com/camel-ai/owl.git
@@ -268,30 +275,61 @@ cd owl
 # Configure environment variables
 cp owl/.env_template owl/.env
 # Edit the .env file and fill in your API keys
+```
 
-# Option 1: Using docker-compose directly
-# (By default it's using pre-built online image, you can also check the docker-compose.yml for building locally)
-cd .container
+### **Deployment Options**
 
+#### **Option 1: Using Pre-built Image (Recommended)**
+
+```bash
+# This option downloads a ready-to-use image from Docker Hub
+# Fastest and recommended for most users
 docker-compose up -d
 
 # Run OWL inside the container
 docker-compose exec owl bash
-
-# activate the virtual environment
 cd .. && source .venv/bin/activate
-
-playwright install-deps 
-
-#run example demo script
+playwright install-deps
 xvfb-python examples/run.py
+```
 
-# Option 2: Build and run using the provided scripts
+#### **Option 2: Building Image Locally**
+
+```bash
+# For users who need to customize the Docker image or cannot access Docker Hub:
+# 1. Open docker-compose.yml
+# 2. Comment out the "image: mugglejinx/owl:latest" line
+# 3. Uncomment the "build:" section and its nested properties
+# 4. Then run:
+docker-compose up -d --build
+
+# Run OWL inside the container
+docker-compose exec owl bash
+cd .. && source .venv/bin/activate
+playwright install-deps
+xvfb-python examples/run.py
+```
+
+#### **Option 3: Using Convenience Scripts**
+
+```bash
+# Navigate to container directory
 cd .container
+
+# Make the script executable and build the Docker image
 chmod +x build_docker.sh
 ./build_docker.sh
-# Run OWL inside the container
+
+# Run OWL with your question
 ./run_in_docker.sh "your question"
+```
+
+### **MCP Desktop Commander Setup**
+
+If using MCP Desktop Commander within Docker, run:
+
+```bash
+npx -y @wonderwhy-er/desktop-commander setup --force-file-protocol
 ```
 
 For more detailed Docker usage instructions, including cross-platform support, optimized configurations, and troubleshooting, please refer to [DOCKER_README.md](.container/DOCKER_README_en.md).
@@ -330,7 +368,7 @@ python examples/run_qwen_zh.py
 python examples/run_deepseek_zh.py
 
 # Run with other OpenAI-compatible models
-python examples/run_openai_compatiable_model.py
+python examples/run_openai_compatible_model.py
 
 # Run with Azure OpenAI
 python examples/run_azure_openai.py
@@ -349,7 +387,7 @@ You can run OWL agent with your own task by modifying the `examples/run.py` scri
 
 ```python
 # Define your own task
-question = "Task description here."
+task = "Task description here."
 
 society = construct_society(question)
 answer, chat_history, token_count = run_society(society)
@@ -361,7 +399,7 @@ For uploading files, simply provide the file path along with your question:
 
 ```python
 # Task with a local file (e.g., file path: `tmp/example.docx`)
-question = "What is in the given DOCX file? Here is the file path: tmp/example.docx"
+task = "What is in the given DOCX file? Here is the file path: tmp/example.docx"
 
 society = construct_society(question)
 answer, chat_history, token_count = run_society(society)
@@ -386,6 +424,30 @@ Here are some tasks you can try with OWL:
 ## Model Context Protocol (MCP)
 
 OWL's MCP integration provides a standardized way for AI models to interact with various tools and data sources:
+
+Before using MCP, you need to install Node.js first.
+### **Install Node.js**
+### Windows
+
+Download the official installer: [Node.js](https://nodejs.org/en).
+
+Check "Add to PATH" option during installation.
+
+### Linux
+```bash
+sudo apt update
+sudo apt install nodejs npm -y
+```
+### Mac
+```bash
+brew install node
+```
+
+### **Install Playwright MCP Service**
+```bash
+npm install -g @executeautomation/playwright-mcp-server
+npx playwright install-deps
+```
 
 Try our comprehensive MCP example in `examples/run_mcp.py` to see these capabilities in action!
 
@@ -536,11 +598,10 @@ We welcome contributions from the community! Here's how you can help:
 3. Submit pull requests with your improvements
 
 **Current Issues Open for Contribution:**
-- [#1868](https://github.com/camel-ai/camel/issues/1868)
-- [#1866](https://github.com/camel-ai/camel/issues/1866)
-- [#1770](https://github.com/camel-ai/camel/issues/1770)
-- [#1712](https://github.com/camel-ai/camel/issues/1712)
-- [#1537](https://github.com/camel-ai/camel/issues/1537)
+- [#362](https://github.com/camel-ai/owl/issues/362)
+- [#1945](https://github.com/camel-ai/camel/issues/1945)
+- [#1925](https://github.com/camel-ai/camel/issues/1925)
+- [#1915](https://github.com/camel-ai/camel/issues/1915)
 
 
 To take on an issue, simply leave a comment stating your interest.
@@ -550,7 +611,7 @@ Join us ([*Discord*](https://discord.camel-ai.org/) or [*WeChat*](https://ghli.o
 
 Join us for further discussions!
 <!-- ![](./assets/community.png) -->
-![](./assets/community.jpeg)
+![](./assets/community.jpg)
 
 # ❓ FAQ
 

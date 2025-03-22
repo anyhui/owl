@@ -12,7 +12,7 @@
 # limitations under the License.
 # ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 # Import from the correct module path
-from owl.utils import run_society
+from utils import run_society
 import os
 import gradio as gr
 import time
@@ -180,7 +180,10 @@ def get_latest_logs(max_lines=100, queue_source=None):
         lines = [line.strip() for line in content.split("\n")]
         content = "\n".join(lines)
 
-        return f"[{role.title()} Agent]: {content}"
+        role_emoji = "🙋" if role.lower() == "user" else "🤖"
+        return f"""### {role_emoji} {role.title()} Agent
+
+{content}"""
 
     for log in filtered_logs:
         formatted_messages = []
@@ -234,7 +237,7 @@ def get_latest_logs(max_lines=100, queue_source=None):
         if not log.endswith("\n"):
             formatted_logs.append("\n")
 
-    return "".join(formatted_logs)
+    return "\n".join(formatted_logs)
 
 
 # Dictionary containing module descriptions
@@ -242,10 +245,12 @@ MODULE_DESCRIPTIONS = {
     "run": "Default mode: Using OpenAI model's default agent collaboration mode, suitable for most tasks.",
     "run_mini": "Using OpenAI model with minimal configuration to process tasks",
     "run_deepseek_zh": "Using deepseek model to process Chinese tasks",
-    "run_openai_compatiable_model": "Using openai compatible model to process tasks",
+    "run_openai_compatible_model": "Using openai compatible model to process tasks",
     "run_ollama": "Using local ollama model to process tasks",
     "run_qwen_mini_zh": "Using qwen model with minimal configuration to process tasks",
     "run_qwen_zh": "Using qwen model to process tasks",
+    "run_azure_openai": "Using azure openai model to process tasks",
+    "run_groq": "Using groq model to process tasks",
 }
 
 
@@ -852,7 +857,7 @@ def create_ui():
                 logs2,
             )
 
-    with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue")) as app:
+    with gr.Blocks(title="OWL", theme=gr.themes.Soft(primary_hue="blue")) as app:
         gr.Markdown(
             """
                 # 🦉 OWL Multi-Agent Collaboration System
@@ -927,6 +932,14 @@ def create_ui():
                 font-size: 0.9em;
                 white-space: pre-wrap;
                 line-height: 1.4;
+            }
+            
+            .log-display {
+                border-radius: 10px;
+                padding: 15px;
+                margin-bottom: 20px;
+                min-height: 50vh;
+                max-height: 75vh;
             }
             
             /* Environment variable management style */
@@ -1063,7 +1076,7 @@ def create_ui():
             """)
 
         with gr.Row():
-            with gr.Column(scale=1):
+            with gr.Column(scale=0.5):
                 question_input = gr.Textbox(
                     lines=5,
                     placeholder="Please enter your question...",
@@ -1103,20 +1116,32 @@ def create_ui():
                     label="Token Count", interactive=False, elem_classes="token-count"
                 )
 
+                # Example questions
+                examples = [
+                    "Open Google search, summarize the github stars, fork counts, etc. of camel-ai's camel framework, and write the numbers into a python file using the plot package, save it locally, and run the generated python file.",
+                    "Browse Amazon and find a product that is attractive to programmers. Please provide the product name and price",
+                    "Write a hello world python file and save it locally",
+                ]
+
+                gr.Examples(examples=examples, inputs=question_input)
+
+                gr.HTML("""
+                        <div class="footer" id="about">
+                            <h3>About OWL Multi-Agent Collaboration System</h3>
+                            <p>OWL is an advanced multi-agent collaboration system developed based on the CAMEL framework, designed to solve complex problems through agent collaboration.</p>
+                            <p>© 2025 CAMEL-AI.org. Based on Apache License 2.0 open source license</p>
+                            <p><a href="https://github.com/camel-ai/owl" target="_blank">GitHub</a></p>
+                        </div>
+                    """)
+
             with gr.Tabs():  # Set conversation record as the default selected tab
                 with gr.TabItem("Conversation Record"):
                     # Add conversation record display area
-                    log_display2 = gr.Textbox(
-                        label="Conversation Record",
-                        lines=25,
-                        max_lines=100,
-                        interactive=False,
-                        autoscroll=True,
-                        show_copy_button=True,
-                        elem_classes="log-display",
-                        container=True,
-                        value="",
-                    )
+                    with gr.Box():
+                        log_display2 = gr.Markdown(
+                            value="No conversation records yet.",
+                            elem_classes="log-display",
+                        )
 
                     with gr.Row():
                         refresh_logs_button2 = gr.Button("Refresh Record")
@@ -1210,24 +1235,6 @@ def create_ui():
 
                     refresh_button.click(fn=update_env_table, outputs=[env_table])
 
-        # Example questions
-        examples = [
-            "Open Google search, summarize the github stars, fork counts, etc. of camel-ai's camel framework, and write the numbers into a python file using the plot package, save it locally, and run the generated python file.",
-            "Browse Amazon and find a product that is attractive to programmers. Please provide the product name and price",
-            "Write a hello world python file and save it locally",
-        ]
-
-        gr.Examples(examples=examples, inputs=question_input)
-
-        gr.HTML("""
-                <div class="footer" id="about">
-                    <h3>About OWL Multi-Agent Collaboration System</h3>
-                    <p>OWL is an advanced multi-agent collaboration system developed based on the CAMEL framework, designed to solve complex problems through agent collaboration.</p>
-                    <p>© 2025 CAMEL-AI.org. Based on Apache License 2.0 open source license</p>
-                    <p><a href="https://github.com/camel-ai/owl" target="_blank">GitHub</a></p>
-                </div>
-            """)
-
         # Set up event handling
         run_button.click(
             fn=process_with_live_logs,
@@ -1287,7 +1294,7 @@ def main():
         app = create_ui()
 
         app.queue()
-        app.launch(share=False, server_name="127.0.0.1", server_port=7860)
+        app.launch(share=False, favicon_path="../assets/owl-favicon.ico")
     except Exception as e:
         logging.error(f"Error occurred while starting the application: {str(e)}")
         print(f"Error occurred while starting the application: {str(e)}")

@@ -12,22 +12,28 @@
 # limitations under the License.
 # ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 import os
+import logging
+import functools
+import json
+from typing import Callable, Any, Dict, List
 
 from dotenv import load_dotenv
-from camel.models import ModelFactory
+from camel.models import ModelFactory, BaseModelBackend
+
 from camel.toolkits import (
-    CodeExecutionToolkit,
     ExcelToolkit,
     ImageAnalysisToolkit,
     SearchToolkit,
     BrowserToolkit,
     FileWriteToolkit,
+    VirtualTryOnToolkit
 )
+from camel.toolkits.base import BaseToolkit
 from camel.types import ModelPlatformType
 
 from owl.utils import run_society
 from camel.societies import RolePlaying
-from camel.logger import set_log_level
+from camel.logger import set_log_level, get_logger
 
 import pathlib
 
@@ -35,8 +41,17 @@ base_dir = pathlib.Path(__file__).parent.parent
 env_path = base_dir / "owl" / ".env"
 load_dotenv(dotenv_path=str(env_path))
 
+# set detailed log recording for debug
 set_log_level(level="DEBUG")
+logger = get_logger(__name__)
+file_handler = logging.FileHandler('tool_calls.log')
+file_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
+root_logger = logging.getLogger()
+root_logger.addHandler(file_handler)
 
 def construct_society(question: str) -> RolePlaying:
     r"""Construct a society of agents based on the given question.
@@ -48,59 +63,60 @@ def construct_society(question: str) -> RolePlaying:
         RolePlaying: A configured society of agents ready to address the question.
     """
 
-    # Create models for different components
+    # Create models for different components (here I use gpt-4o for all agents, so remember to set the openai key in .env)
     models = {
         "user": ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
-            model_type="qwen-max",
-            api_key=os.getenv("QWEN_API_KEY"),
-            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model_config_dict={"temperature": 0.4, "max_tokens": 4096},
+            model_type="gpt-4o",
+            api_key=os.getenv("OPENAI_API_KEY"),
+            model_config_dict={"temperature": 0.4},
         ),
         "assistant": ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
-            model_type="qwen-max",
-            api_key=os.getenv("QWEN_API_KEY"),
-            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model_config_dict={"temperature": 0.4, "max_tokens": 4096},
+            model_type="gpt-4o",
+            api_key=os.getenv("OPENAI_API_KEY"),
+            model_config_dict={"temperature": 0.4},
         ),
         "web": ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
-            model_type="qwen-vl-max",
-            api_key=os.getenv("QWEN_API_KEY"),
-            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model_config_dict={"temperature": 0.4, "max_tokens": 4096},
+            model_type="gpt-4o",
+            api_key=os.getenv("OPENAI_API_KEY"),
+            model_config_dict={"temperature": 0.2},
         ),
         "planning": ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
-            model_type="qwen-max",
-            api_key=os.getenv("QWEN_API_KEY"),
-            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model_config_dict={"temperature": 0.4, "max_tokens": 4096},
+            model_type="gpt-4o",
+            api_key=os.getenv("OPENAI_API_KEY"),
+            model_config_dict={"temperature": 0.3},
         ),
         "image": ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
-            model_type="qwen-vl-max",
-            api_key=os.getenv("QWEN_API_KEY"),
-            url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            model_config_dict={"temperature": 0.4, "max_tokens": 4096},
+            model_type="gpt-4o",
+            api_key=os.getenv("OPENAI_API_KEY"),
+            model_config_dict={"temperature": 0.4},
         ),
     }
 
-    # Configure toolkits
+    # prepare toolkits
+    image_toolkit = ImageAnalysisToolkit(model=models["image"])
+    browser_toolkit = BrowserToolkit(
+        headless=False,
+        web_agent_model=models["web"],
+        planning_agent_model=models["planning"],
+    )
+    excel_toolkit = ExcelToolkit()
+    file_toolkit = FileWriteToolkit(output_dir="./")
+    virtual_try_on_toolkit = VirtualTryOnToolkit()
+    
     tools = [
-        *BrowserToolkit(
-            headless=False,  # Set to True for headless mode (e.g., on remote servers)
-            web_agent_model=models["web"],
-            planning_agent_model=models["planning"],
-        ).get_tools(),
-        *CodeExecutionToolkit(sandbox="subprocess", verbose=True).get_tools(),
-        *ImageAnalysisToolkit(model=models["image"]).get_tools(),
+        *browser_toolkit.get_tools(),
+        *image_toolkit.get_tools(),
         SearchToolkit().search_duckduckgo,
-        SearchToolkit().search_google,  # Comment this out if you don't have google search
-        SearchToolkit().search_wiki,
-        *ExcelToolkit().get_tools(),
-        *FileWriteToolkit(output_dir="./").get_tools(),
+        # SearchToolkit().search_google,
+        # SearchToolkit().search_wiki,
+        *excel_toolkit.get_tools(),
+        *file_toolkit.get_tools(),
+        *virtual_try_on_toolkit.get_tools(),
     ]
 
     # Configure agent roles and parameters
@@ -127,16 +143,14 @@ def construct_society(question: str) -> RolePlaying:
 
 def main():
     r"""Main function to run the OWL system with an example question."""
-    # Example research question
-    question = "Navigate to Amazon.com and identify one product that is attractive to coders. Please provide me with the product name and price. No need to verify your answer."
+
+    question = f"open https://www.uniqlo.com/eu-at/en/women/tops?path=37608%2C84986%2C85018%2C85207 which shows some clothes on sale. First, directly click one image of clothes which should be an big interactive element (don't wrongly click the small like button overlapped on the image!) to go into its specific details page and then get a partial screenshot for this clothes. Second, only after you've get the partial screenshort of the product, using your own virtual try-on toolkit (there is no built-in virtual try-on button on this website, either no third party tool required) to show me the virtual try-on result with the product."
 
     # Construct and run the society
     society = construct_society(question)
     answer, chat_history, token_count = run_society(society)
-
-    # Output the result
+    # output the result
     print(f"\033[94mAnswer: {answer}\033[0m")
-
 
 if __name__ == "__main__":
     main()

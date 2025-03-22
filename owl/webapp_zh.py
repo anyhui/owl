@@ -12,7 +12,7 @@
 # limitations under the License.
 # ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 # Import from the correct module path
-from owl.utils import run_society
+from utils import run_society
 import os
 import gradio as gr
 import time
@@ -180,7 +180,10 @@ def get_latest_logs(max_lines=100, queue_source=None):
         lines = [line.strip() for line in content.split("\n")]
         content = "\n".join(lines)
 
-        return f"[{role.title()} Agent]: {content}"
+        role_emoji = "🙋" if role.lower() == "user" else "🤖"
+        return f"""### {role_emoji} {role.title()} Agent
+
+{content}"""
 
     for log in filtered_logs:
         formatted_messages = []
@@ -234,7 +237,7 @@ def get_latest_logs(max_lines=100, queue_source=None):
         if not log.endswith("\n"):
             formatted_logs.append("\n")
 
-    return "".join(formatted_logs)
+    return "\n".join(formatted_logs)
 
 
 # Dictionary containing module descriptions
@@ -242,10 +245,12 @@ MODULE_DESCRIPTIONS = {
     "run": "默认模式：使用OpenAI模型的默认的智能体协作模式，适合大多数任务。",
     "run_mini": "使用使用OpenAI模型最小化配置处理任务",
     "run_deepseek_zh": "使用deepseek模型处理中文任务",
-    "run_openai_compatiable_model": "使用openai兼容模型处理任务",
+    "run_openai_compatible_model": "使用openai兼容模型处理任务",
     "run_ollama": "使用本地ollama模型处理任务",
     "run_qwen_mini_zh": "使用qwen模型最小化配置处理任务",
     "run_qwen_zh": "使用qwen模型处理任务",
+    "run_azure_openai": "使用azure openai模型处理任务",
+    "run_groq": "使用groq模型处理任务",
 }
 
 
@@ -904,6 +909,14 @@ def create_ui():
                 white-space: pre-wrap;
                 line-height: 1.4;
             }
+
+            .log-display {
+                border-radius: 10px;
+                padding: 15px;
+                margin-bottom: 20px;
+                min-height: 50vh;
+                max-height: 75vh;
+            }
             
             /* 环境变量管理样式 */
             .env-manager-container {
@@ -1039,7 +1052,7 @@ def create_ui():
             """)
 
         with gr.Row():
-            with gr.Column(scale=1):
+            with gr.Column(scale=0.5):
                 question_input = gr.Textbox(
                     lines=5,
                     placeholder="请输入您的问题...",
@@ -1079,20 +1092,32 @@ def create_ui():
                     label="令牌计数", interactive=False, elem_classes="token-count"
                 )
 
+                # 示例问题
+                examples = [
+                    "打开百度搜索，总结一下camel-ai的camel框架的github star、fork数目等，并把数字用plot包写成python文件保存到本地，并运行生成的python文件。",
+                    "浏览亚马逊并找出一款对程序员有吸引力的产品。请提供产品名称和价格",
+                    "写一个hello world的python文件，保存到本地",
+                ]
+
+                gr.Examples(examples=examples, inputs=question_input)
+
+                gr.HTML("""
+                        <div class="footer" id="about">
+                            <h3>关于 OWL 多智能体协作系统</h3>
+                            <p>OWL 是一个基于CAMEL框架开发的先进多智能体协作系统，旨在通过智能体协作解决复杂问题。</p>
+                            <p>© 2025 CAMEL-AI.org. 基于Apache License 2.0开源协议</p>
+                            <p><a href="https://github.com/camel-ai/owl" target="_blank">GitHub</a></p>
+                        </div>
+                    """)
+
             with gr.Tabs():  # 设置对话记录为默认选中的标签页
                 with gr.TabItem("对话记录"):
                     # 添加对话记录显示区域
-                    log_display2 = gr.Textbox(
-                        label="对话记录",
-                        lines=25,
-                        max_lines=100,
-                        interactive=False,
-                        autoscroll=True,
-                        show_copy_button=True,
-                        elem_classes="log-display",
-                        container=True,
-                        value="",
-                    )
+                    with gr.Box():
+                        log_display2 = gr.Markdown(
+                            value="暂无对话记录。",
+                            elem_classes="log-display",
+                        )
 
                     with gr.Row():
                         refresh_logs_button2 = gr.Button("刷新记录")
@@ -1180,24 +1205,6 @@ def create_ui():
 
                     refresh_button.click(fn=update_env_table, outputs=[env_table])
 
-        # 示例问题
-        examples = [
-            "打开百度搜索，总结一下camel-ai的camel框架的github star、fork数目等，并把数字用plot包写成python文件保存到本地，并运行生成的python文件。",
-            "浏览亚马逊并找出一款对程序员有吸引力的产品。请提供产品名称和价格",
-            "写一个hello world的python文件，保存到本地",
-        ]
-
-        gr.Examples(examples=examples, inputs=question_input)
-
-        gr.HTML("""
-                <div class="footer" id="about">
-                    <h3>关于 OWL 多智能体协作系统</h3>
-                    <p>OWL 是一个基于CAMEL框架开发的先进多智能体协作系统，旨在通过智能体协作解决复杂问题。</p>
-                    <p>© 2025 CAMEL-AI.org. 基于Apache License 2.0开源协议</p>
-                    <p><a href="https://github.com/camel-ai/owl" target="_blank">GitHub</a></p>
-                </div>
-            """)
-
         # 设置事件处理
         run_button.click(
             fn=process_with_live_logs,
@@ -1257,7 +1264,7 @@ def main():
         app = create_ui()
 
         app.queue()
-        app.launch(share=False, server_name="127.0.0.1", server_port=7860)
+        app.launch(share=False)
     except Exception as e:
         logging.error(f"启动应用程序时发生错误: {str(e)}")
         print(f"启动应用程序时发生错误: {str(e)}")
